@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { BuddyPanel } from './components/BuddyPanel'
 import type { AvatarMood } from './components/buddies/shared'
 import { Logo } from './components/Logo'
-import { ModePicker } from './components/ModePicker'
+import { MODES, ModePicker } from './components/ModePicker'
 import { ScriptDialog, type Script } from './components/ScriptDialog'
 import { Stage } from './components/Stage'
 import { VoiceSettings } from './components/VoiceSettings'
@@ -24,6 +24,17 @@ const STEP_LABEL: Record<Mode, string> = {
   fluent: 'Part',
 }
 
+/** The order "Play all" runs the modes in, and the break between them. */
+const PLAY_ALL: Mode[] = ['listen', 'build', 'fluent']
+const PLAY_ALL_BREAK_MS = 1500
+
+const modeLabel = (mode: Mode) => {
+  const info = MODES.find((m) => m.id === mode)!
+  return `${info.emoji} ${info.title}`
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 const BUBBLES = [
   'top-[-4rem] left-[-3rem] size-56 bg-violet-200',
   'top-1/3 right-[-5rem] size-72 bg-pink-100 [animation-delay:-2s]',
@@ -38,6 +49,9 @@ export default function App() {
   const [repeatAfterMe, setRepeatAfterMe] = useStoredState('speak-up:repeat', true)
   const [dialogOpen, setDialogOpen] = useState(() => script === DEFAULT_SCRIPT)
   const [mode, setMode] = useState<Mode | null>(null)
+  const [playingAll, setPlayingAll] = useState(false)
+  // Bumped whenever something else takes over, so a running "Play all" knows to stop.
+  const sequenceRef = useRef(0)
 
   const voices = useVoices()
   const autoVoice = voices.find(isEnglish) ?? null
@@ -47,7 +61,7 @@ export default function App() {
 
   const play = (next: Mode) => {
     setMode(next)
-    speak(buildSegments(next, script.text, words), words, {
+    return speak(buildSegments(next, script.text, words), words, {
       voice: voices.find((v) => v.voiceURI === voiceURI) ?? autoVoice,
       rate,
       pitch,
@@ -56,7 +70,36 @@ export default function App() {
     })
   }
 
+  const cancelPlayAll = () => {
+    sequenceRef.current++
+    setPlayingAll(false)
+  }
+
+  const playOne = (next: Mode) => {
+    cancelPlayAll()
+    play(next)
+  }
+
+  const playAll = async () => {
+    const sequence = ++sequenceRef.current
+    const isCurrent = () => sequence === sequenceRef.current
+    setPlayingAll(true)
+    for (const [i, next] of PLAY_ALL.entries()) {
+      if (i > 0) {
+        // Show what's coming during the short break between parts.
+        setMode(next)
+        await sleep(PLAY_ALL_BREAK_MS)
+        if (!isCurrent()) return
+      }
+      const finished = await play(next)
+      if (!isCurrent()) return
+      if (!finished) break
+    }
+    setPlayingAll(false)
+  }
+
   const saveScript = (next: Script) => {
+    cancelPlayAll()
     stop()
     setScript(next)
     setDialogOpen(false)
@@ -88,15 +131,16 @@ export default function App() {
           <button
             type="button"
             onClick={() => setDialogOpen(true)}
-            className="rounded-full border-2 border-b-4 border-violet-200 bg-white px-4 py-1.5 font-bold text-violet-600 transition hover:border-violet-400 active:translate-y-0.5 active:border-b-2"
+            aria-label="Change line"
+            title="Change line"
+            className="grid size-11 place-items-center rounded-full border-2 border-b-4 border-violet-200 bg-white text-xl transition hover:border-violet-400 active:translate-y-0.5 active:border-b-2"
           >
-            ✏️ Change line
+            <span aria-hidden>✏️</span>
           </button>
         </header>
 
         <p className="max-w-xl font-semibold text-violet-500">
-          One minute a day! Pick a line from a movie or show, listen to it, build it up word by word, then say it
-          fluently. 🌟
+          Speak like a kid first 🧸 One minute every day ⏱️ Soon you'll speak like a pro! 🚀
         </p>
 
         {!speechSupported && (
@@ -143,7 +187,7 @@ export default function App() {
                   {busy && mode ? (
                     <>
                       <span>
-                        {STEP_LABEL[mode]} {state.step} of {state.total}
+                        {modeLabel(mode)} · {STEP_LABEL[mode]} {state.step} of {state.total}
                         {state.status === 'paused' && ' · paused'}
                       </span>
                       {state.yourTurn && state.status !== 'paused' && (
@@ -155,18 +199,20 @@ export default function App() {
                         </span>
                       )}
                     </>
-                  ) : (
-                    '👇 Pick a mode to start!'
-                  )}
+                  ) : playingAll && mode ? (
+                    <span className="animate-pulse text-violet-500">Get ready: {modeLabel(mode)}…</span>
+                  ) : null}
                 </p>
               </div>
             </div>
           </section>
 
           <ModePicker
-            activeMode={busy ? mode : null}
+            activeMode={busy || playingAll ? mode : null}
+            playingAll={playingAll}
             disabled={!speechSupported || words.length === 0}
-            onPlay={play}
+            onPlay={playOne}
+            onPlayAll={playAll}
           />
         </main>
 

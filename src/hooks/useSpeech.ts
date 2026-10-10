@@ -52,6 +52,8 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 export function useSpeech() {
   const [state, setState] = useState<SpeechState>(IDLE)
   const runRef = useRef(0)
+  // Settles the promise returned by `speak`: true when the run finished, false when cut short.
+  const settleRef = useRef<((finished: boolean) => void) | null>(null)
   const wordKeyRef = useRef(0)
   // Chrome can garbage-collect an utterance mid-speech and never fire `onend`
   // unless something keeps a reference to it.
@@ -82,8 +84,14 @@ export function useSpeech() {
     gapRef.current = null
   }
 
+  const settle = (finished: boolean) => {
+    settleRef.current?.(finished)
+    settleRef.current = null
+  }
+
   const stop = useCallback(() => {
     if (!speechSupported) return
+    settle(false)
     runRef.current++
     clearTimers()
     speechSynthesis.cancel()
@@ -91,8 +99,13 @@ export function useSpeech() {
     setState(IDLE)
   }, [])
 
-  const speak = useCallback((segments: Segment[], words: Word[], options: SpeakOptions) => {
-    if (!speechSupported || segments.length === 0) return
+  /** Speaks the segments; resolves true when they all finish, false if stopped or replaced. */
+  const speak = useCallback((segments: Segment[], words: Word[], options: SpeakOptions): Promise<boolean> => {
+    if (!speechSupported || segments.length === 0) return Promise.resolve(false)
+    settle(false)
+    const done = new Promise<boolean>((resolve) => {
+      settleRef.current = resolve
+    })
     const run = ++runRef.current
     const isStale = () => run !== runRef.current
     clearTimers()
@@ -104,6 +117,7 @@ export function useSpeech() {
       if (i >= segments.length) {
         utteranceRef.current = null
         setState(IDLE)
+        settle(true)
         return
       }
 
@@ -188,6 +202,7 @@ export function useSpeech() {
     setState({ ...IDLE, status: 'speaking', segment: segments[0], step: 1, total: segments.length })
     // Chrome sometimes drops an utterance queued in the same tick as `cancel()`.
     startGap(50, () => speakAt(0))
+    return done
   }, [])
 
   const pause = useCallback(() => {
