@@ -16,10 +16,16 @@ export function useViseme(talking: boolean, word: string | null, wordKey: number
     const shapes = toVisemes(word)
     const start = performance.now()
     let frame = 0
+    let shown: Viseme | null = null
     const tick = () => {
       const progress = (performance.now() - start) / Math.max(wordMs, 120)
       // Hold the last shape briefly, then relax the mouth if the next word is late.
-      setViseme(progress >= 1.2 ? 'rest' : shapes[Math.min(shapes.length - 1, Math.floor(progress * shapes.length))])
+      const next = progress >= 1.2 ? 'rest' : shapes[Math.min(shapes.length - 1, Math.floor(progress * shapes.length))]
+      // Runs every frame, so only touch React state when the shape changes.
+      if (next !== shown) {
+        shown = next
+        setViseme(next)
+      }
       if (progress < 1.2) frame = requestAnimationFrame(tick)
     }
     tick()

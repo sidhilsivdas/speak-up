@@ -150,7 +150,7 @@ export default function App() {
         )}
 
         <main className="flex flex-col gap-6">
-          <section className="relative rounded-[2.5rem] border-4 border-violet-100 bg-white/90 p-6 shadow-xl shadow-violet-200/60 backdrop-blur sm:p-10">
+          <section className="relative rounded-[2.5rem] border-4 border-violet-100 bg-white/95 p-6 shadow-xl shadow-violet-200/60 sm:p-10">
             {credit && (
               <p className="mb-5 inline-block rounded-full bg-violet-100 px-4 py-1 text-sm font-extrabold tracking-wide text-violet-600">
                 🎬 {credit}
@@ -216,7 +216,7 @@ export default function App() {
           />
         </main>
 
-        <footer className="mt-auto rounded-[2rem] border-2 border-violet-100 bg-white/80 p-5 backdrop-blur sm:p-6">
+        <footer className="mt-auto rounded-[2rem] border-2 border-violet-100 bg-white/90 p-5 sm:p-6">
           <VoiceSettings
             voices={voices}
             autoVoice={autoVoice}

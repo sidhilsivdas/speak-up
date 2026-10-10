@@ -1,9 +1,10 @@
+import { lazy } from 'react'
 import { Leo } from './Leo'
-import { Pip } from './Pip'
 
 export const BUDDIES = {
   leo: { name: 'Leo', Component: Leo },
-  pip: { name: 'Pip', Component: Pip },
+  // Not shown at the moment, so kept out of the main bundle and loaded only if picked.
+  pip: { name: 'Pip', Component: lazy(() => import('./Pip').then((m) => ({ default: m.Pip }))) },
 }
 
 export type BuddyId = keyof typeof BUDDIES

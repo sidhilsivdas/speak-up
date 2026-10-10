@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { BUDDIES, type BuddyId } from './buddies'
 import type { AvatarMood } from './buddies/shared'
 
@@ -13,11 +14,11 @@ interface Props {
 }
 
 /** The speaking buddy, with a "Repeat after me" bubble while the learner takes their turn. */
-export function BuddyPanel({ buddyId, mood, word, wordKey, wordMs, turnKey, className = '' }: Props) {
+export function BuddyPanel({ buddyId, mood, word, wordKey, wordMs, turnKey, className }: Props) {
   const buddy = BUDDIES[buddyId] ?? BUDDIES.leo
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative ${className ?? ''}`}>
       {mood === 'listening' && (
         <div key={turnKey} className="absolute -top-5 left-1/2 z-20 -translate-x-1/2">
           <div className="relative animate-rise rounded-2xl border-2 border-pink-300 bg-white px-3.5 py-1.5 font-display text-base font-bold whitespace-nowrap text-pink-500 shadow-lg shadow-pink-200/70">
@@ -36,7 +37,9 @@ export function BuddyPanel({ buddyId, mood, word, wordKey, wordMs, turnKey, clas
             : 'w-full'
         }
       >
-        <buddy.Component mood={mood} word={word} wordKey={wordKey} wordMs={wordMs} />
+        <Suspense fallback={null}>
+          <buddy.Component mood={mood} word={word} wordKey={wordKey} wordMs={wordMs} />
+        </Suspense>
       </div>
     </div>
   )

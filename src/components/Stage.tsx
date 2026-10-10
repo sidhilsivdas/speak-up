@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import { wordColor } from '../lib/colors'
 import type { Segment, Word } from '../lib/segments'
 
@@ -14,20 +14,29 @@ interface Props {
  * events; the bright segment still shows where you are.
  */
 export function Stage({ words, segment, wordIndex }: Props) {
+  const lineKey = words.map((w) => w.text).join(' ')
+  // The line shown when the page opens appears straight away, so the first paint isn't
+  // held back by the animation; lines added later still bounce in.
+  const [firstLine] = useState(lineKey)
+  const entrance = lineKey !== firstLine
+
   if (words.length === 0) {
     return <p className="font-display text-xl text-violet-300">Add a line to start practising.</p>
   }
 
   return (
     // Keyed by the text so a new line plays the entrance animation again.
-    <p key={words.map((w) => w.text).join(' ')} className="font-display text-3xl leading-[1.5] font-semibold sm:text-4xl sm:leading-[1.5]">
+    <p key={lineKey} className="font-display text-3xl leading-[1.5] font-semibold sm:text-4xl sm:leading-[1.5]">
       {words.map((word, i) => {
         const inSegment = !segment || (i >= segment.firstWord && i <= segment.lastWord)
         const active = i === wordIndex
         return (
           <Fragment key={i}>
             {/* The entrance animation lives on the wrapper so it doesn't replay when the highlight moves on. */}
-            <span className="inline-block animate-rise" style={{ animationDelay: `${i * 45}ms` }}>
+            <span
+              className={entrance ? 'inline-block animate-rise' : 'inline-block'}
+              style={entrance ? { animationDelay: `${i * 45}ms` } : undefined}
+            >
               <span
                 className={[
                   'relative inline-block px-0.5 transition-[color,opacity] duration-200',
